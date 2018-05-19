@@ -1,1 +1,0 @@
-/tmp/sl_script_bafc9f22c09f94eb51050070270d0547.lsl

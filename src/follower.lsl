@@ -136,7 +136,8 @@ default
             return;
         }
         else {
-            integer pos = llListFindList(g_names, (list)msg) - 1;
+            //user selected
+            integer pos = llListFindList(g_names, (list)msg);
             g_kTarget = llList2Key(g_uuids, pos);
 
             llOwnerSay("Starting following " + llKey2Name(g_kTarget));
@@ -163,6 +164,7 @@ default
                 return;
             }
             integer cnt;
+            g_names = [];
             for (cnt = 0; cnt < length && cnt < 11; ++cnt) {
                 g_names += (list)llGetSubString(llKey2Name(llList2Key(g_uuids, cnt)), 0, 23);
             }
