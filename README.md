@@ -7,4 +7,4 @@ This is a simple HUD for following other users in OpenSim.
 • The timer is used instead of not_at_target because OpenSim would launch not_at_target many many many times very fast after another, which would cause lag
 
 ===Installation===
-Create a Prim, attach it as HUD (face 4 facing towards you), add script to it, click it.
+Create a Prim, attach it as HUD (face 4 facing towards you), put texture followr-button.png on face 4, add script to it, detach and attach it.
