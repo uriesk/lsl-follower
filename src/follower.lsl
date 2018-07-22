@@ -1,5 +1,6 @@
 //------------------------------------------------------------------------------
 //### follower.lsl
+// v.0.21
 //Simple Follower that is using various workarounds to make it work in OpenSim
 //
 //  Copyright (c) 2008 - 2017 uriesk
@@ -21,11 +22,15 @@ float g_Length = 2.7;
 //for following
 integer g_active = 0;
 float g_AvatarHeight = 0.0;
-integer g_osFix;
+//g_mode 0: Follow with Fix for OpenSim
+//g_mode 1: Follow without Fix
+//g_mode >2: TP to avatar
+integer g_mode;
 key g_kTarget;
 vector g_pTarget;
 integer g_walkingStatus;
 float g_lastDistance;
+float g_OSVersion;
 //for menu
 integer g_handle;
 list g_uuids;
@@ -57,7 +62,7 @@ list multipagemenubuttons(list buttons, integer page)
     return buttons;
 }
 
-osMoveToTarget(vector target, float tau, integer osFix)
+osMoveToTarget(vector target, float tau, integer notOsFix)
 {
     //If the target in llMoveToTarget isn't at llGround(), it will make the Avatar fly
     //in the current OpenSIM versions, when standing on prims or in an upper floor of
@@ -68,7 +73,7 @@ osMoveToTarget(vector target, float tau, integer osFix)
     //the feet of the Avatar on the targets x,y position and extend that to a position
     //that is on z = 0.
     //This will make the Avatar always walk on the ground.
-    if (osFix) {
+    if (!notOsFix && g_OSVersion >= 0.9) {
         //make sure that we know the Avatar Height
         if (g_AvatarHeight == 0.0) {
             vector avatarSize = llGetAgentSize(llGetOwner());
@@ -110,11 +115,11 @@ osMoveToTarget(vector target, float tau, integer osFix)
     llMoveToTarget(target, tau);
 }
 
-float distanceToTarget(vector ownPosition, vector targetPosition, integer osFix)
+float distanceToTarget(vector ownPosition, vector targetPosition, integer notOsFix)
 {
     //because the Avatar is walking on the ground, while the target could be flying,
     //we just check the x,y distance
-    if (osFix) {
+    if (!notOsFix) {
         ownPosition = <ownPosition.x, ownPosition.y, 0.0>;
         targetPosition = <targetPosition.x, targetPosition.y, 0.0>;
     }
@@ -140,7 +145,7 @@ default
         }
         vector tPosition = llList2Vector(details, 0);
         vector ownPosition = llGetPos();
-        float distance = distanceToTarget(ownPosition, tPosition, g_osFix);
+        float distance = distanceToTarget(ownPosition, tPosition, g_mode);
         if (distance < g_Length) {
             if (g_walkingStatus == 1){
                 llStopMoveToTarget();
@@ -154,7 +159,7 @@ default
         else if (tPosition != g_pTarget || distance > g_lastDistance) {
             llStopMoveToTarget();
             g_pTarget = tPosition;
-            osMoveToTarget(g_pTarget, g_tau, g_osFix);
+            osMoveToTarget(g_pTarget, g_tau, g_mode);
         }
         g_lastDistance = distance;
     }
@@ -166,7 +171,12 @@ default
             llTakeControls(CONTROL_ROT_LEFT | CONTROL_ROT_RIGHT | CONTROL_LEFT | CONTROL_RIGHT | CONTROL_FWD | CONTROL_BACK| CONTROL_UP | CONTROL_DOWN, TRUE, FALSE);
             g_pTarget = llList2Vector(llGetObjectDetails(g_kTarget, [OBJECT_POS]), 0);
             g_walkingStatus = 1;
-            osMoveToTarget(g_pTarget, g_tau, g_osFix);
+            osMoveToTarget(g_pTarget, g_tau, g_mode);
+        }
+        else if (perm & PERMISSION_TELEPORT)
+        {
+            g_pTarget = llList2Vector(llGetObjectDetails(g_kTarget, [OBJECT_POS]), 0);
+            llTeleportAgent(llGetOwner(), "", g_pTarget + <0.3, 0.3, 0.0>, g_pTarget);
         }
     }
     
@@ -193,14 +203,23 @@ default
             //user selected
             integer pos = llListFindList(g_names, (list)msg);
             g_kTarget = llList2Key(g_uuids, pos);
-
+            if (g_mode == 0)
+            {
+                llOffsetTexture(0.25, 0.25, 4);
+            }
+            else if (g_mode == 1)
+            {
+                llOffsetTexture(-0.25, -0.25, 4);
+            }
+            else
+            {
+                llRequestPermissions(llGetOwner(), PERMISSION_TELEPORT);
+                return;
+            }
             llOwnerSay("Starting following " + llKey2Name(g_kTarget));
+            g_OSVersion = (float)llGetSubString(osGetSimulatorVersion(), 8, 10);
             g_active = 1;
             g_walkingStatus = 0;
-            if (g_osFix)
-                llOffsetTexture(0.25, 0.25, 4);
-            else
-                llOffsetTexture(-0.25, -0.25, 4);
             llSetTimerEvent(0.5);
         }
     }
@@ -211,12 +230,12 @@ default
         if (llGetAttached()==0) return;
         
         if (g_active==0) {
-            //if double-click, deactivate fix
+            //if multiple-click, increment mode
             if (llGetTime() < 1.1) {
-                g_osFix = FALSE;
+                ++g_mode;
                 return;
             } else {
-                g_osFix = TRUE;
+                g_mode = 0;
             }
             llResetTime();
             //get user selection menu
